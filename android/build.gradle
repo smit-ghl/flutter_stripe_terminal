@@ -2,14 +2,14 @@ group 'com.stripe.stripe_terminal'
 version '1.0-SNAPSHOT'
 
 buildscript {
-    ext.kotlin_version = '1.6.10'
+    ext.kotlin_version = '1.8.21'
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.0'
+        classpath 'com.android.tools.build:gradle:7.4.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -47,7 +47,8 @@ android {
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
-    implementation "com.stripe:stripeterminal:2.9.0"
+    implementation "com.stripe:stripeterminal-localmobile:2.20.1"
+    implementation "com.stripe:stripeterminal-core:2.20.1"
     implementation 'com.beust:klaxon:5.5'
     implementation 'com.google.code.gson:gson:2.9.0'
 }
