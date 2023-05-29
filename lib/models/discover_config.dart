@@ -44,7 +44,7 @@ class DiscoverConfig {
 
   toMap() {
     return {
-      "discoveryMethod": describeEnum(discoveryMethod),
+      "discoveryMethod": discoveryMethod.name,
       "locationId": locationId,
       "simulated": simulated,
     };
