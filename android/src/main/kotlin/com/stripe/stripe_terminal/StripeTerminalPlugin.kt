@@ -1,15 +1,9 @@
 package com.stripe.stripe_terminal
 
-import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.os.Build
 import android.os.Bundle
-import androidx.annotation.NonNull
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import com.google.gson.Gson
 import com.stripe.stripeterminal.Terminal
 import com.stripe.stripeterminal.TerminalApplicationDelegate
@@ -32,46 +26,30 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
     private lateinit var channel: MethodChannel
     private var currentActivity: Activity? = null
-    private val REQUEST_CODE_LOCATION = 1012
     private lateinit var tokenProvider: StripeTokenProvider
     private var cancelableDiscover: Cancelable? = null
     private var activeReaders: List<Reader> = arrayListOf()
     private var simulated = false
-    private val permissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        arrayOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.BLUETOOTH,
-            Manifest.permission.BLUETOOTH_ADMIN,
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-        )
-    } else {
-        arrayOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.BLUETOOTH,
-            Manifest.permission.BLUETOOTH_ADMIN,
-        )
-    }
 
 
     // Change this to other level soon
     private val logLevel = LogLevel.VERBOSE
 
     // Create your listener object. Override any methods that you want to be notified about
-    val listener = object : TerminalListener {
+    private val listener = object : TerminalListener {
         override fun onUnexpectedReaderDisconnect(reader: Reader) {
             // TODO: Trigger the user about the issue.
         }
     }
 
 
-    override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "stripe_terminal")
         channel.setMethodCallHandler(this)
     }
 
 
-    fun _startStripe() {
+    private fun startStripe(result: Result) {
         // Pass in the current application context, your desired logging level, your token provider, and the listener you created
         if (!Terminal.isInitialized()) {
             Terminal.initTerminal(
@@ -80,7 +58,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                 tokenProvider,
                 listener
             )
-            result?.success(true)
+            result.success(true)
         }
 
     }
@@ -93,27 +71,28 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
     }
 
 
-    override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+    override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "init" -> {
-                if (_isPermissionAllowed(result)) {
-                    _startStripe()
-                }
+                startStripe(result)
             }
+
             "clearReaderDisplay" -> {
-                Terminal.getInstance().clearReaderDisplay(object :Callback{
+                Terminal.getInstance().clearReaderDisplay(object : Callback {
                     override fun onFailure(e: TerminalException) {
                         return result.error(
                             "stripeTerminal#unableToClearDisplay",
                             e.errorMessage,
                             e.stackTraceToString()
-                        )                    }
+                        )
+                    }
 
                     override fun onSuccess() {
                         result.success(true)
                     }
                 })
             }
+
             "setReaderDisplay" -> {
                 val arguments = call.arguments as HashMap<*, *>
                 val rawReaderDisplay = arguments["readerDisplay"] as HashMap<*, *>
@@ -139,7 +118,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
                 Terminal.getInstance().setReaderDisplay(cart.build(), object : Callback {
                     override fun onSuccess() {
-                        result.success(true);
+                        result.success(true)
                     }
 
                     override fun onFailure(e: TerminalException) {
@@ -151,6 +130,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                     }
                 })
             }
+
             "discoverReaders#start" -> {
                 val arguments = call.arguments as HashMap<*, *>
                 val discoverConfig = arguments["config"] as HashMap<*, *>
@@ -203,6 +183,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                         }
                     })
             }
+
             "discoverReaders#stop" -> {
                 if (cancelableDiscover == null) {
                     result.error(
@@ -228,12 +209,15 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
                 }
             }
+
             "fetchConnectedReader" -> {
                 result.success(Terminal.getInstance().connectedReader?.rawJson())
             }
+
             "connectionStatus" -> {
                 result.success(handleConnectionStatus(Terminal.getInstance().connectionStatus))
             }
+
             "connectToInternetReader" -> {
                 when (Terminal.getInstance().connectionStatus) {
                     ConnectionStatus.NOT_CONNECTED -> {
@@ -282,6 +266,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
                             })
                     }
+
                     ConnectionStatus.CONNECTING -> {
                         result.error(
                             "stripeTerminal#deviceConnecting",
@@ -289,6 +274,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                             null
                         )
                     }
+
                     ConnectionStatus.CONNECTED -> {
                         result.error(
                             "stripeTerminal#deviceAlreadyConnected",
@@ -298,6 +284,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                     }
                 }
             }
+
             "connectBluetoothReader" -> {
                 when (Terminal.getInstance().connectionStatus) {
                     ConnectionStatus.NOT_CONNECTED -> {
@@ -362,6 +349,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
                             })
                     }
+
                     ConnectionStatus.CONNECTING -> {
                         result.error(
                             "stripeTerminal#deviceConnecting",
@@ -369,6 +357,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                             null
                         )
                     }
+
                     ConnectionStatus.CONNECTED -> {
                         result.error(
                             "stripeTerminal#deviceAlreadyConnected",
@@ -378,6 +367,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                     }
                 }
             }
+
             "readReusableCardDetail" -> {
                 generateLog("readReusableCardDetail", "Started reading payment method")
 
@@ -405,6 +395,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                     })
                 }
             }
+
             "collectPaymentMethod" -> {
                 generateLog("collectPaymentMethod", "Started reading payment method")
 
@@ -430,8 +421,9 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
                     val collectConfiguration =
                         arguments["collectConfiguration"] as HashMap<*, *>
-                    val collectConfig =
-                        CollectConfiguration(skipTipping = collectConfiguration["skipTipping"] as Boolean);
+                    val configBuilder = CollectConfiguration.Builder()
+                    configBuilder.skipTipping(collectConfiguration["skipTipping"] as Boolean)
+                    val collectConfig = configBuilder.build()
                     Terminal.getInstance()
                         .retrievePaymentIntent(
                             paymentIntentClientSecret,
@@ -495,6 +487,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                             })
                 }
             }
+
             "disconnectFromReader" -> {
                 if (Terminal.getInstance().connectedReader != null) {
                     Terminal.getInstance().disconnectReader(object : Callback {
@@ -518,41 +511,10 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
                     )
                 }
             }
+
             else -> result.notImplemented()
         }
 
-    }
-
-    var result: Result? = null
-    private fun _isPermissionAllowed(result: Result): Boolean {
-        val permissionStatus = permissions.map {
-            ContextCompat.checkSelfPermission(currentActivity!!, it)
-        }
-
-        if (!permissionStatus.contains(PackageManager.PERMISSION_DENIED)) {
-            result.success(true)
-            return true
-        }
-
-
-        val cannotAskPermissions = permissions.map {
-            ActivityCompat.shouldShowRequestPermissionRationale(currentActivity!!, it)
-        }
-
-        if (cannotAskPermissions.contains(true)) {
-            result.error(
-                "stripeTerminal#permissionDeclinedPermanenty",
-                "You have declined the necessary permission, please allow from settings to continue.",
-                null
-            )
-            return false
-        }
-
-        this.result = result
-
-        ActivityCompat.requestPermissions(currentActivity!!, permissions, REQUEST_CODE_LOCATION)
-
-        return false
     }
 
     override fun onRequestPermissionsResult(
@@ -560,23 +522,11 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
         permissions: Array<out String>,
         grantResults: IntArray
     ): Boolean {
-        val permissionStatus = permissions.map {
-            ContextCompat.checkSelfPermission(currentActivity!!, it)
-        }
-        if (!permissionStatus.contains(PackageManager.PERMISSION_DENIED)) {
-            _startStripe()
-        } else {
-            result?.error(
-                "stripeTerminal#insuffecientPermission",
-                "You have not provided enough permission for the scanner to work",
-                null
-            )
-        }
-        return requestCode == REQUEST_CODE_LOCATION
+        return true
     }
 
 
-    override fun onDetachedFromEngine(@NonNull binding: FlutterPlugin.FlutterPluginBinding) {
+    override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         if (Terminal.getInstance().connectedReader != null) {
             Terminal.getInstance().disconnectReader(object : Callback {
@@ -622,7 +572,7 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
 
 
     /*
-     These functions are stub functions that are not relevent to the plugin but needs to be defined in order to get the few necessary callbacks
+     These functions are stub functions that are not relevant to the plugin but needs to be defined in order to get the few necessary callbacks
     */
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -674,7 +624,6 @@ class StripeTerminalPlugin : FlutterPlugin, MethodCallHandler,
     }
 
     override fun onTrimMemory(p0: Int) {
-        TerminalApplicationDelegate.onTrimMemory(currentActivity!!.application, p0)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
