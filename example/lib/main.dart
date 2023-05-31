@@ -137,8 +137,8 @@ class _MyAppState extends State<MyApp> {
                   _sub = stripeTerminal
                       .discoverReaders(
                     DiscoverConfig(
-                      discoveryMethod: DiscoveryMethod.bluetooth,
-                      simulated: simulated,
+                      discoveryMethod: DiscoveryMethod.localMobile,
+                      simulated: false,
                     ),
                   )
                       .listen((readers) {
